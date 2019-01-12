@@ -23,7 +23,7 @@ import time
 
 # In[ ]:
 
-
+bank = pytreebank.load_sst("../stanfordSentimentTreebank/trees")
 dictFile = open("../stanfordSentimentTreebank/dictionary.txt")
 lines = dictFile.readlines()
 exp = r'^(\S+)\|\d+$'
@@ -49,11 +49,11 @@ class RNTN(nn.Module):
         self.L = nn.Embedding(vocabularySize, d)
         self.W = nn.Linear(d * 2, d)
         self.Ws = nn.Linear(d,  classes)
-        self.register_parameter('V', nn.Parameter(torch.rand(2 * d, 2 * d, d)))
+        self.register_parameter('V', nn.Parameter(torch.rand(2 * d, 2 * d, d).cuda()))
         self.lSoftmax = nn.LogSoftmax(dim=1)
     
     def tensorProduct(self, phrase):
-        result = torch.empty(phrase.shape[0], self.d)
+        result = torch.empty(phrase.shape[0], self.d).cuda()
         for i in range(self.d):
             result[:,i] = torch.sum(phrase * torch.mm(phrase, self.V[:,:,i]), dim = 1)
         return result
@@ -83,6 +83,25 @@ def encodeTree(fold, tree):
     return fold.add('sentiment', encodedTree)
 
 
+def encodeTree4Training(fold, tree):
+    allOutputs, allLabels = [], []
+    
+    def encodeNodeTraining(node):
+        if len(node.children) == 0:
+            wordVector = fold.add('embed', word2idx[node.to_lines()[0]])
+            allOutputs.append(fold.add('sentiment', wordVector))
+            allLabels.append(node.label)
+            return wordVector
+        else:
+            phraseVector = fold.add('node', encodeNodeTraining(node.children[0]), encodeNodeTraining(node.children[1]))
+            allOutputs.append(fold.add('sentiment', phraseVector))
+            allLabels.append(node.label)
+            return phraseVector
+    
+    encodedTree = encodeNodeTraining(tree)
+    return allOutputs, allLabels
+
+
 # In[ ]:
 
 
@@ -99,17 +118,19 @@ path = '../savedModels/d30'
 accuracy = []
 
 net = RNTN(len(word2idx), d = 30)
+net.cuda()
 
-for epoch in np.arange(100, 5001, 100):
-    checkpoint = torch.load('{}/net_{}.pth'.format(path, epoch))
+for e in np.arange(100, 5001, 100):
+    checkpoint = torch.load('{}/net_{}.pth'.format(path, e))
     net.load_state_dict(checkpoint)
     net.eval()
     with torch.no_grad():
         fold = Fold(cuda= device.type != 'cpu')
         allOutputs, allLabels = [], []
         for sentenceTree in bank['dev']:
-            allOutputs.append(encodeTree(fold, sentenceTree))
-            allLabels.append(sentenceTree.label)
+            sentenceOutputs, sentenceLabels = encodeTree4Training(fold, sentenceTree)
+            allOutputs.extend(sentenceOutputs)
+            allLabels.extend(sentenceLabels)
 
         res = fold.apply(net, [allOutputs, allLabels])
         accuracy.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
