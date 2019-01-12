@@ -116,7 +116,7 @@ def encodeTree(fold, tree):
     encodedTree = encodeNode(tree)
     return fold.add('sentiment', encodedTree)
 
-def fineGrainedOutput(batch, device):
+def allOutput(batch, net, device):
     fold = Fold(cuda= device.type != 'cpu')
     allOutputs, allLabels = [], []
     for sentenceTree in batch:
@@ -126,7 +126,7 @@ def fineGrainedOutput(batch, device):
 
     return fold.apply(net, [allOutputs, allLabels])
 
-def rootOutput(batch, device):
+def rootOutput(batch, net, device):
     fold = Fold(cuda= device.type != 'cpu')
     allOutputs, allLabels = [], []
     for sentenceTree in bank['dev']:
@@ -169,7 +169,7 @@ if __name__ == '__main__':
 
             optimizer.zero_grad()
 
-            res = fineGrainedOutput(batch, device)
+            res = allOutput(batch, net, device)
             error = loss_f(res[0], res[1])
             error.backward(); optimizer.step()
             totalLoss[-1] += error.item()
@@ -182,6 +182,6 @@ if __name__ == '__main__':
             start = time.time()
         if e % devSet_every == 0:
             with torch.no_grad():
-                res = rootOutput(bank['dev'], device)
+                res = rootOutput(bank['dev'], net, device)
                 accuracy.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
                 print('Epoch {}: Accuracy on the dev set = {}'.format(e, accuracy[-1]))

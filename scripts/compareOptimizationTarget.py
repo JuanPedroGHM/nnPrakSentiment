@@ -29,9 +29,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print('Training on {}'.format(device))
 
 batchSize = 256
-epochs = 3000
+epochs = 1000 
 
-print_every = 10
+print_every = 10  
 devSet_every = 10
 save_every = 50
 
@@ -81,7 +81,7 @@ for e in range(1, epochs+1):
         with torch.no_grad():
             res = rootOutput(bank['dev'], net, device)
             accuracyAll.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-            print('FineAll: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracy[-1]))
+            print('FineAll: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracyAll[-1]))
 
 ## Optimize FineRoot
 net.load_state_dict(checkpoint5000)
@@ -111,11 +111,11 @@ for e in range(1, epochs+1):
         with torch.no_grad():
             res = rootOutput(bank['dev'], net, device)
             accuracyRoot.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-            print('FineRoot: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracy[-1]))
+            print('FineRoot: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracyRoot[-1]))
 
 
 ## Save date for plotting
-accuracyData = np.cat([np.arange(10, 3001, 10), accuracyAll, accuracyRoot], dim = 0)
+accuracyData = np.vstack([np.arange(10, 1001, 10), accuracyAll, accuracyRoot]) 
 np.savetxt("../data/accuracyComp.csv", accuracyData, delimiter=",")
 
 
@@ -124,7 +124,7 @@ np.savetxt("../data/accuracyComp.csv", accuracyData, delimiter=",")
 with torch.no_grad():
 
     ## FineAll
-    checkpointFineAll = torch.load('../savedModels/d30/fineAll/net_3000.pth')
+    checkpointFineAll = torch.load('../savedModels/d30/fineAll/net_1000.pth')
     net.load_state_dict(checkpointFineAll)
 
     res = allOutput(bank['test'], net, device)
@@ -136,7 +136,7 @@ with torch.no_grad():
     print('FineAll: Sentence Accuracy on test set = {}'.format(e, accuracy[-1]))
 
     ## FineRoot
-    checkpointFineAll = torch.load('../savedModels/d30/fineRoot/net_3000.pth')
+    checkpointFineAll = torch.load('../savedModels/d30/fineRoot/net_1000.pth')
     net.load_state_dict(checkpointFineAll)
 
     res = allOutput(bank['test'], net, device)
