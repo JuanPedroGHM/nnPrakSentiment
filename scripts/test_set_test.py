@@ -52,12 +52,12 @@ with torch.no_grad():
     net.eval()
 
     res = allOutput(bank['test'], net, device)
-    accuracyAll.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-    print('FineAll: Phrase Accuracy on test set = {}'.format(accuracyAll[-1]))
+    accuracyAllPhrase = accuracy_score(torch.argmax(res[0], dim=1), res[1])
+    print('FineAll: Phrase Accuracy on test set = {}'.format(accuracyAllPhrase))
 
     res = rootOutput(bank['test'], net, device)
-    accuracyRoot.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-    print('FineAll: Sentence Accuracy on test set = {}'.format(accuracyRoot[-1]))
+    accuracyAll.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
+    print('FineAll: Sentence Accuracy on test set = {}'.format(accuracyAll[-1]))
 
     ## FineRoot
     checkpointFineAll = torch.load('../savedModels/d30/fineRoot/net_1000.pth')
@@ -65,8 +65,8 @@ with torch.no_grad():
     net.eval()
     
     res = allOutput(bank['test'], net, device)
-    accuracyAll.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-    print('FineRoot: Phrase Accuracy on test set = {}'.format(accuracyAll[-1]))
+    accuracyRootPharase = accuracy_score(torch.argmax(res[0], dim=1), res[1])
+    print('FineRoot: Phrase Accuracy on test set = {}'.format(accuracyRootPharase))
 
     res = rootOutput(bank['test'], net, device)
     accuracyRoot.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
