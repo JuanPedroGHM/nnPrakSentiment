@@ -49,9 +49,9 @@ with torch.no_grad():
 
     res = allOutput(bank['test'], net, device)
     accuracy_Phrase = accuracy_score(torch.argmax(res[0], dim=1), res[1])
-    print('FineAll: Phrase Accuracy on test set = {}'.format(accuracy_Phrase))
+    print('test set: Phrase Accuracy on test set = {}'.format(accuracy_Phrase))
 
     res = rootOutput(bank['test'], net, device)
     accuracy_Root = accuracy_score(torch.argmax(res[0], dim=1), res[1])
-    print('FineAll: Sentence Accuracy on test set = {}'.format(accuracy_Root))
+    print("test set: Sentence Accuracy on test set = {}'.format(accuracy_Root))
 
