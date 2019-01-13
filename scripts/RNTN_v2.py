@@ -88,52 +88,58 @@ class RNTN(nn.Module):
 
 
 # ## Dynamic Batching with torchfold
-def encodeTree4Training(fold, tree):
+def encodeTree(fold, tree, allPhrases = True):
     allOutputs, allLabels = [], []
 
-    def encodeNodeTraining(node):
-        if len(node.children) == 0:
-            wordVector = fold.add('embed', word2idx[node.to_lines()[0]])
-            allOutputs.append(fold.add('sentiment', wordVector))
-            allLabels.append(node.label)
-            return wordVector
-        else:
-            phraseVector = fold.add('node', encodeNodeTraining(node.children[0]), encodeNodeTraining(node.children[1]))
-            allOutputs.append(fold.add('sentiment', phraseVector))
-            allLabels.append(node.label)
-            return phraseVector
-
-    encodedTree = encodeNodeTraining(tree)
-    return allOutputs, allLabels
-
-def encodeTree(fold, tree):
     def encodeNode(node):
         if len(node.children) == 0:
-            return fold.add('embed', word2idx[node.to_lines()[0]])
+            wordVector = fold.add('embed', word2idx[node.to_lines()[0]])
+
+            if allPhrases:
+                allOutputs.append(fold.add('sentiment', wordVector))
+                allLabels.append(node.label)
+
+            return wordVector
         else:
-            return fold.add('node', encodeNode(node.children[0]), encodeNode(node.children[1]))
+            phraseVector = fold.add('node', encodeNode(node.children[0]), encodeNode(node.children[1]))
+            if allPhrases:
+                allOutputs.append(fold.add('sentiment', phraseVector))
+                allLabels.append(node.label)
+            return phraseVector
 
     encodedTree = encodeNode(tree)
-    return fold.add('sentiment', encodedTree)
+    if not allPhrases:
+        allOutputs.append(fold.add('sentiment', encodedTree))
+        allLabels.append(tree.label)
+    return allOutputs, allLabels
 
-def allOutput(batch, net, device):
+def foldForward(batch, net, device, allPhrases = True):
     fold = Fold(cuda= device.type != 'cpu')
     allOutputs, allLabels = [], []
     for sentenceTree in batch:
-        sentenceOutputs, sentenceLabels = encodeTree4Training(fold, sentenceTree)
+        sentenceOutputs, sentenceLabels = encodeTree(fold, sentenceTree, allPhrases)
         allOutputs.extend(sentenceOutputs)
         allLabels.extend(sentenceLabels)
 
     return fold.apply(net, [allOutputs, allLabels])
 
-def rootOutput(batch, net, device):
-    fold = Fold(cuda= device.type != 'cpu')
-    allOutputs, allLabels = [], []
-    for sentenceTree in bank['dev']:
-        allOutputs.append(encodeTree(fold, sentenceTree))
-        allLabels.append(sentenceTree.label)
 
-    return fold.apply(net, [allOutputs, allLabels])
+# ## Helper functions
+def getAccuracyScores(net, dataset, device, modelFile = None):
+
+    if modelFile:
+        checkpoint = torch.load(modelFile)
+        net.load_state_dict(checkpoint)
+        net.eval()
+
+    with torch.no_grad():
+        [outputs, labels] = foldForward(dataset, net, device, allPhrases = True)
+        fineAllAcc = accuracy_score(torch.argmax(outputs, dim=1), labels)
+
+        [outputs, labels] = foldForward(dataset, net, device, allPhrases = False)
+        fineRootAcc = accuracy_score(torch.argmax(outputs, dim=1), labels)
+        return fineAllAcc, fineRootAcc
+
 # ## Training
 
 # In[ ]:
@@ -142,23 +148,24 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('Training on {}'.format(device))
 
-    batchSize = 256
-    epochs = 4000
-
-    print_every = 10
-    devSet_every = 10
-    save_every = 50
-
-    savePath = '../savedModels/v2/'
-
-    totalLoss = []
-    accuracy = []
-
     net = RNTN(len(word2idx))
     net.to(device)
 
     loss_f = nn.NLLLoss() # Negative log likelihood loss
     optimizer = optim.Adagrad(net.parameters(), weight_decay=0.001) # Adagrad with L2 regularization
+
+    savePath = '../savedModels/d{}'.format(net.d)
+
+    batchSize = 1024
+    epochs = 5000
+
+    print_every = 2
+    devSet_every = 2
+    save_every = 50
+
+    totalLoss = []
+    allAccArr = []
+    rootAccArr = []
 
     start = time.time()
     for e in range(1, epochs+1):
@@ -169,19 +176,23 @@ if __name__ == '__main__':
 
             optimizer.zero_grad()
 
-            res = allOutput(batch, net, device)
-            error = loss_f(res[0], res[1])
+            [outputs, labels] = foldForward(batch, net, device, allPhrases = True)
+            error = loss_f(outputs, labels)
             error.backward(); optimizer.step()
             totalLoss[-1] += error.item()
 
-
         if e % save_every == 0:
-            torch.save(net.state_dict(), '{}/{}/net_{}.pth'.format(savePath, d, e))
+            torch.save(net.state_dict(), '/net_{}.pth'.format(savePath, e))
         if e % print_every == 0:
             print('Epoch {}: Total Loss = {}, Avg. Time/Epoch = {}'.format(e, totalLoss[-1],(time.time() - start) / print_every))
             start = time.time()
         if e % devSet_every == 0:
             with torch.no_grad():
-                res = rootOutput(bank['dev'], net, device)
-                accuracy.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-                print('Epoch {}: Accuracy on the dev set = {}'.format(e, accuracy[-1]))
+                allAcc, rootAcc = getAccuracyScores(net, bank['dev'], device)
+                print('Epoch {}: FineAll Accuracy on the dev set = {}'.format(e, allAcc))
+                print('Epoch {}: FineRoot Accuracy on the dev set = {}'.format(e, rootAcc))
+                allAccArr.append(allAcc); rootAccArr.append(rootAcc)
+
+    accuracyData = np.vstack([np.arange(save_every, epochs + 1, save_every), allAccArr, rootAccArr])
+    np.savetxt("../data/trainingDevAcc.csv", accuracyData, delimiter=",")
+    np.savetxt("../data/trainingLoss.csv", totalLoss, delimiter=",")

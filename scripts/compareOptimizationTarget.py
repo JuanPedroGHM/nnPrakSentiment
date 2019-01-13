@@ -1,37 +1,12 @@
-# coding: utf-8
-
-# # RNTN using Dynamic Batching
-
-# ## Import Statements
-
-# In[ ]:
-
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
-
-from torchfold import Fold
-
-from sklearn.utils import shuffle
-from sklearn.metrics import accuracy_score
-
-import numpy as np
-
-import pytreebank
-
-import re
-import time
-
 from RNTN_v2 import *
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print('Training on {}'.format(device))
 
-batchSize = 256
-epochs = 1000 
+batchSize = 1024
+epochs = 1000
 
-print_every = 10  
+print_every = 10
 devSet_every = 10
 save_every = 50
 
@@ -51,9 +26,6 @@ optimizer = optim.Adagrad(net.parameters(), weight_decay=0.001) # Adagrad with L
 ## First optimize FineAll
 
 checkpoint5000 = torch.load('../savedModels/d30/net_5000.pth')
-
-
-
 net.load_state_dict(checkpoint5000)
 net.eval()
 
@@ -66,8 +38,8 @@ for e in range(1, epochs+1):
 
         optimizer.zero_grad()
 
-        res = allOutput(batch, net, device)
-        error = loss_f(res[0], res[1])
+        [outputs, labels] = foldForward(batch, net, device, allPhrases = True)
+        error = loss_f(outputs, labels)
         error.backward(); optimizer.step()
         totalLoss[-1] += error.item()
 
@@ -79,8 +51,8 @@ for e in range(1, epochs+1):
         start = time.time()
     if e % devSet_every == 0:
         with torch.no_grad():
-            res = rootOutput(bank['dev'], net, device)
-            accuracyAll.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
+            allAcc, rootAcc = getAccuracyScores(net, dataset, device)
+            accuracyAll.append(rootAcc)
             print('FineAll: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracyAll[-1]))
 
 ## Optimize FineRoot
@@ -96,7 +68,7 @@ for e in range(1, epochs+1):
 
         optimizer.zero_grad()
 
-        res = rootOutput(batch, net, device)
+        [outputs, labels] = foldForward(batch, net, device, allPhrases = False)
         error = loss_f(res[0], res[1])
         error.backward(); optimizer.step()
         totalLoss[-1] += error.item()
@@ -109,40 +81,23 @@ for e in range(1, epochs+1):
         start = time.time()
     if e % devSet_every == 0:
         with torch.no_grad():
-            res = rootOutput(bank['dev'], net, device)
-            accuracyRoot.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
+            allAcc, rootAcc = getAccuracyScores(net, dataset, device)
+            accuracyRoot.append(rootAcc)
             print('FineRoot: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracyRoot[-1]))
 
 
 ## Save date for plotting
-accuracyData = np.vstack([np.arange(10, 1001, 10), accuracyAll, accuracyRoot]) 
+accuracyData = np.vstack([np.arange(10, 1001, 10), accuracyAll, accuracyRoot])
 np.savetxt("../data/accuracyComp.csv", accuracyData, delimiter=",")
-
-
-## Test on the test Set
 
 with torch.no_grad():
 
     ## FineAll
-    checkpointFineAll = torch.load('../savedModels/d30/fineAll/net_1000.pth')
-    net.load_state_dict(checkpointFineAll)
-
-    res = allOutput(bank['test'], net, device)
-    accuracyRoot.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-    print('FineAll: Phrase Accuracy on test set = {}'.format(e, accuracy[-1]))
-
-    res = rootOutput(bank['test'], net, device)
-    accuracyRoot.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-    print('FineAll: Sentence Accuracy on test set = {}'.format(e, accuracy[-1]))
+    allAcc, rootAcc = getAccuracyScores(net, bank['test'], device, '../savedModels/d30/fineAll/net_1000.pth')
+    print('FineAll: Phrase Accuracy on test set = {}'.format(e, allAcc))
+    print('FineAll: Sentence Accuracy on test set = {}'.format(e, rootAcc))
 
     ## FineRoot
-    checkpointFineAll = torch.load('../savedModels/d30/fineRoot/net_1000.pth')
-    net.load_state_dict(checkpointFineAll)
-
-    res = allOutput(bank['test'], net, device)
-    accuracyRoot.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-    print('FineRoot: Phrase Accuracy on test set = {}'.format(e, accuracy[-1]))
-
-    res = rootOutput(bank['test'], net, device)
-    accuracyRoot.append(accuracy_score(torch.argmax(res[0], dim=1), res[1]))
-    print('FineAll: Sentence Accuracy on test set = {}'.format(e, accuracy[-1]))
+    allAcc, rootAcc = getAccuracyScores(net, bank['test'], device, '../savedModels/d30/fineRoot/net_1000.pth')
+    print('FineRoot: Phrase Accuracy on test set = {}'.format(e, allAcc))
+    print('FineRoot: Sentence Accuracy on test set = {}'.format(e, rootAcc))
