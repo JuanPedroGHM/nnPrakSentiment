@@ -3,7 +3,7 @@ from RNTN_v2 import *
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print('Training on {}'.format(device))
 
-batchSize = 1024
+batchSize = 512
 epochs = 1000
 
 print_every = 10
@@ -51,7 +51,7 @@ for e in range(1, epochs+1):
         start = time.time()
     if e % devSet_every == 0:
         with torch.no_grad():
-            allAcc, rootAcc = getAccuracyScores(net, dataset, device)
+            allAcc, rootAcc = getAccuracyScores(net, bank['dev'], device)
             accuracyAll.append(rootAcc)
             print('FineAll: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracyAll[-1]))
 
@@ -81,7 +81,7 @@ for e in range(1, epochs+1):
         start = time.time()
     if e % devSet_every == 0:
         with torch.no_grad():
-            allAcc, rootAcc = getAccuracyScores(net, dataset, device)
+            allAcc, rootAcc = getAccuracyScores(net, bank['dev'], device)
             accuracyRoot.append(rootAcc)
             print('FineRoot: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracyRoot[-1]))
 
