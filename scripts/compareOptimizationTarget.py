@@ -56,6 +56,7 @@ for e in range(1, epochs+1):
             print('FineAll: Epoch {}: Root accuracy on the dev set = {}'.format(e, accuracyAll[-1]))
 
 ## Optimize FineRoot
+print('Starting to optimize FineRoot')
 net.load_state_dict(checkpoint5000)
 net.eval()
 
@@ -69,7 +70,7 @@ for e in range(1, epochs+1):
         optimizer.zero_grad()
 
         [outputs, labels] = foldForward(batch, net, device, allPhrases = False)
-        error = loss_f(res[0], res[1])
+        error = loss_f(outputs, labels) 
         error.backward(); optimizer.step()
         totalLoss[-1] += error.item()
 
