@@ -61,17 +61,18 @@ def chunks(l, n):
 
 
 class RNTN(nn.Module):
-    def __init__(self, vocabularySize, classes = 5, d = 30):
+    def __init__(self, device, vocabularySize, classes = 5, d = 30):
         super(RNTN, self).__init__()
         self.d = d
+        self.device = device
         self.L = nn.Embedding(vocabularySize, d)
         self.W = nn.Linear(d * 2, d)
         self.Ws = nn.Linear(d,  classes)
-        self.register_parameter('V', nn.Parameter(torch.rand(2 * d, 2 * d, d).cuda()))
+        self.register_parameter('V', nn.Parameter(torch.rand(2 * d, 2 * d, d).to(device)))
         self.lSoftmax = nn.LogSoftmax(dim=1)
 
     def tensorProduct(self, phrase):
-        result = torch.empty(phrase.shape[0], self.d).cuda()
+        result = torch.empty(phrase.shape[0], self.d).to(self.device)
         for i in range(self.d):
             result[:,i] = torch.sum(phrase * torch.mm(phrase, self.V[:,:,i]), dim = 1)
         return result
@@ -128,7 +129,7 @@ def foldForward(batch, net, device, allPhrases = True):
 def getAccuracyScores(net, dataset, device, modelFile = None):
 
     if modelFile:
-        checkpoint = torch.load(modelFile)
+        checkpoint = torch.load(modelFile, map_location=device)
         net.load_state_dict(checkpoint)
         net.eval()
 
@@ -148,7 +149,7 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('Training on {}'.format(device))
 
-    net = RNTN(len(word2idx))
+    net = RNTN(device, len(word2idx))
     net.to(device)
 
     loss_f = nn.NLLLoss() # Negative log likelihood loss
@@ -182,7 +183,7 @@ if __name__ == '__main__':
             totalLoss[-1] += error.item()
 
         if e % save_every == 0:
-            torch.save(net.state_dict(), '/net_{}.pth'.format(savePath, e))
+            torch.save(net.state_dict(), '{}/net_{}.pth'.format(savePath, e))
         if e % print_every == 0:
             print('Epoch {}: Total Loss = {}, Avg. Time/Epoch = {}'.format(e, totalLoss[-1],(time.time() - start) / print_every))
             start = time.time()
