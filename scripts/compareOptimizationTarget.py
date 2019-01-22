@@ -17,7 +17,7 @@ totalLoss = []
 accuracyAll = []
 accuracyRoot = []
 
-net = RNTN(len(word2idx), d=30)
+net = RNTN(device, len(word2idx), d=30)
 net.to(device)
 
 loss_f = nn.NLLLoss() # Negative log likelihood loss

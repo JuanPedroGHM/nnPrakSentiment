@@ -13,7 +13,7 @@ if __name__ == "__main__":
     print('Using {}'.format(device))
 
     # in[ ]:
-    net = RNTN(len(word2idx), d=30)
+    net = RNTN(device, len(word2idx), d=30)
     net.to(device)
 
     print('Testing accuracy with saved model: {}'.format(filePath))
