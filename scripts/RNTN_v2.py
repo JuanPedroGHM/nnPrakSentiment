@@ -1,17 +1,6 @@
-# coding: utf-8
-
-# # RNTN using Dynamic Batching
-
-# ## Import Statements
-
-# In[ ]:
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-from torchfold import Fold
 
 from sklearn.utils import shuffle
 from sklearn.metrics import accuracy_score
@@ -20,14 +9,12 @@ import numpy as np
 
 import pytreebank
 
+import sys
+sys.path.append('../')
+from torchfold import Fold
+
 import re
 import time
-
-
-# ## Loading and Pre-processing
-
-# In[ ]:
-
 
 dictFile = open("../stanfordSentimentTreebank/dictionary.txt", encoding='utf-8')
 lines = dictFile.readlines()
@@ -43,22 +30,12 @@ words.append('9 1/2')
 
 word2idx = dict((word, number) for number, word in enumerate(words))
 
-
-# In[ ]:
-
-
 bank = pytreebank.load_sst("../stanfordSentimentTreebank/trees")
 
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
     for i in range(0, len(l), n):
         yield l[i:i + n]
-
-
-# ## Define RNTN
-
-# In[ ]:
-
 
 class RNTN(nn.Module):
     def __init__(self, device, vocabularySize, classes = 5, d = 30):
@@ -141,11 +118,8 @@ def getAccuracyScores(net, dataset, device, modelFile = None):
         fineRootAcc = accuracy_score(torch.argmax(outputs, dim=1), labels)
         return fineAllAcc, fineRootAcc
 
-# ## Training
-
-# In[ ]:
-
 if __name__ == '__main__':
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('Training on {}'.format(device))
 
@@ -160,8 +134,8 @@ if __name__ == '__main__':
     batchSize = 512 
     epochs = 5000
 
-    print_every = 50 
-    devSet_every = 50 
+    print_every = 1 
+    devSet_every = 1 
     save_every = 500 
 
     totalLoss = []
