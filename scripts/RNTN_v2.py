@@ -148,7 +148,7 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('Training on {}'.format(device))
 
-    net = RNTN(len(word2idx))
+    net = RNTN(len(word2idx), d=52)
     net.to(device)
 
     loss_f = nn.NLLLoss() # Negative log likelihood loss
@@ -156,12 +156,12 @@ if __name__ == '__main__':
 
     savePath = '../savedModels/d{}'.format(net.d)
 
-    batchSize = 1024
+    batchSize = 512 
     epochs = 5000
 
-    print_every = 2
-    devSet_every = 2
-    save_every = 50
+    print_every = 50 
+    devSet_every = 50 
+    save_every = 500 
 
     totalLoss = []
     allAccArr = []
@@ -182,7 +182,7 @@ if __name__ == '__main__':
             totalLoss[-1] += error.item()
 
         if e % save_every == 0:
-            torch.save(net.state_dict(), '/net_{}.pth'.format(savePath, e))
+            torch.save(net.state_dict(), '{}/net_{}.pth'.format(savePath, e))
         if e % print_every == 0:
             print('Epoch {}: Total Loss = {}, Avg. Time/Epoch = {}'.format(e, totalLoss[-1],(time.time() - start) / print_every))
             start = time.time()
@@ -193,6 +193,6 @@ if __name__ == '__main__':
                 print('Epoch {}: FineRoot Accuracy on the dev set = {}'.format(e, rootAcc))
                 allAccArr.append(allAcc); rootAccArr.append(rootAcc)
 
-    accuracyData = np.vstack([np.arange(save_every, epochs + 1, save_every), allAccArr, rootAccArr])
-    np.savetxt("../data/trainingDevAcc.csv", accuracyData, delimiter=",")
-    np.savetxt("../data/trainingLoss.csv", totalLoss, delimiter=",")
+    accuracyData = np.vstack([np.arange(devSet_every, epochs + 1, devSet_every), allAccArr, rootAccArr])
+    np.savetxt("../data/trainingD{}DevAcc.csv".format(net.d), accuracyData, delimiter=",")
+    np.savetxt("../data/trainingD{}Loss.csv".format(net.d), totalLoss, delimiter=",")
