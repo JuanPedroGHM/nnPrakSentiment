@@ -66,7 +66,7 @@ class RNTN(nn.Module):
 
 
 # ## Dynamic Batching with torchfold
-def encodeTree(fold, tree, allPhrases = True):
+def encodeTree(fold, tree, allPhrases = True, returnPhrases = False):
     allOutputs, allLabels = [], []
 
     def encodeNode(node):
@@ -75,31 +75,43 @@ def encodeTree(fold, tree, allPhrases = True):
 
             if allPhrases:
                 allOutputs.append(fold.add('sentiment', wordVector))
-                allLabels.append(node.label)
+                if not returnPhrases:
+                    allLabels.append(node.label)
+                else:
+                    allLabels.append(node.to_lines()[0])
 
             return wordVector
         else:
             phraseVector = fold.add('node', encodeNode(node.children[0]), encodeNode(node.children[1]))
             if allPhrases:
                 allOutputs.append(fold.add('sentiment', phraseVector))
-                allLabels.append(node.label)
+                if not returnPhrases:
+                    allLabels.append(node.label)
+                else:
+                    allLabels.append(node.to_lines()[0])
             return phraseVector
 
     encodedTree = encodeNode(tree)
     if not allPhrases:
         allOutputs.append(fold.add('sentiment', encodedTree))
-        allLabels.append(tree.label)
+        if not returnPhrases:
+            allLabels.append(node.label)
+        else:
+            allLabels.append(node.to_lines()[0])
     return allOutputs, allLabels
 
-def foldForward(batch, net, device, allPhrases = True):
+def foldForward(batch, net, device, allPhrases = True, returnPhrases = False):
     fold = Fold(cuda= device.type != 'cpu')
     allOutputs, allLabels = [], []
     for sentenceTree in batch:
-        sentenceOutputs, sentenceLabels = encodeTree(fold, sentenceTree, allPhrases)
+        sentenceOutputs, sentenceLabels = encodeTree(fold, sentenceTree, allPhrases, returnPhrases)
         allOutputs.extend(sentenceOutputs)
         allLabels.extend(sentenceLabels)
-
-    return fold.apply(net, [allOutputs, allLabels])
+    
+    if not returnPhrases:
+        return fold.apply(net, [allOutputs, allLabels])
+    else:
+        return fold.apply(net, [allOutputs])[0], allLabels
 
 
 # ## Helper functions
